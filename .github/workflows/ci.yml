@@ -1,0 +1,44 @@
+name: CI + Dell DP compliance
+on:
+  push: { branches: [ main ] }
+  pull_request: { branches: [ main ] }
+
+jobs:
+  build-test-protect:
+    runs-on: ubuntu-latest
+    env:
+      APP_NAME: sample-orders-api
+      POLICY_NAME: gold-7d
+      DELL_API_URL: ${{ secrets.DELL_API_URL }}
+      DELL_USER: ${{ secrets.DELL_USER }}
+      DELL_PASS: ${{ secrets.DELL_PASS }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Lint
+        run: flake8 . --count --exit-zero --max-line-length=127 --statistics
+
+      - name: Run tests
+        run: pytest -q
+
+      - name: Pre-deploy snapshot
+        run: python scripts/dell_dp.py snapshot --asset "$APP_NAME"
+
+      - name: Deploy (simulated)
+        run: echo "Deploying $APP_NAME to staging… ✅"
+
+      - name: Attach policy
+        run: python scripts/dell_dp.py attach-policy --asset "$APP_NAME" --policy "$POLICY_NAME"
+
+      - name: Compliance gate
+        run: python scripts/dell_dp.py verify --asset "$APP_NAME" --policy "$POLICY_NAME"

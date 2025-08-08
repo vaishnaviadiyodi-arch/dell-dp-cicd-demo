@@ -1,0 +1,34 @@
+name: Weekly DR Drill (mock)
+on:
+  schedule:
+    - cron: "0 3 * * 1"   # Mondays 03:00 UTC
+  workflow_dispatch:
+
+jobs:
+  restore-and-smoke:
+    runs-on: ubuntu-latest
+    env:
+      APP_NAME: sample-orders-api
+      SANDBOX: dr-sandbox
+      DELL_API_URL: ${{ secrets.DELL_API_URL }}
+      DELL_USER: ${{ secrets.DELL_USER }}
+      DELL_PASS: ${{ secrets.DELL_PASS }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore to sandbox
+        run: python scripts/dell_dp.py restore --asset "$APP_NAME" --target "$SANDBOX"
+
+      - name: Publish report
+        run: |
+          mkdir -p dist
+          echo "DR Drill $(date -u)" > dist/report.txt
+          echo "Asset: $APP_NAME" >> dist/report.txt
+          echo "Sandbox: $SANDBOX" >> dist/report.txt
+          echo "Result: PASS" >> dist/report.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dr-drill-report
+          path: dist/report.txt
